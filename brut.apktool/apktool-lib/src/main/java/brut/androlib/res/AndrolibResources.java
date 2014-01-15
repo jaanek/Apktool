@@ -390,6 +390,7 @@ final public class AndrolibResources {
         if (flags.get("debug")) { // inject debuggable="true" into manifest
             cmd.add("--debug-mode");
         }
+        cmd.add("--no-crunch");
 
         // force package id so that some frameworks build with correct id
         // disable if user adds own aapt (can't know if they have this feature)
@@ -461,6 +462,7 @@ final public class AndrolibResources {
         }
         try {
             OS.exec(cmd.toArray(new String[0]));
+            System.out.println("Command run: " + cmd.toString());
             if (flags.get("verbose")) {
                 LOGGER.info("command ran: ");
                 LOGGER.info(cmd.toString());
@@ -503,7 +505,8 @@ final public class AndrolibResources {
     public Duo<ResFileDecoder, AXmlResourceParser> getResFileDecoder() {
         ResStreamDecoderContainer decoders = new ResStreamDecoderContainer();
         decoders.setDecoder("raw", new ResRawStreamDecoder());
-        decoders.setDecoder("9patch", new Res9patchStreamDecoder());
+        //decoders.setDecoder("9patch", new Res9patchStreamDecoder());
+        decoders.setDecoder("9patch", new ResRawStreamDecoder());
 
         AXmlResourceParser axmlParser = new AXmlResourceParser();
         axmlParser.setAttrDecoder(new ResAttrDecoder());
