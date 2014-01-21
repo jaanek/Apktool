@@ -19,6 +19,7 @@ package brut.androlib.res;
 import brut.androlib.AndrolibException;
 import brut.androlib.err.CantFindFrameworkResException;
 import brut.androlib.res.data.*;
+import brut.androlib.res.data.value.ResStringValue;
 import brut.androlib.res.decoder.*;
 import brut.androlib.res.decoder.ARSCDecoder.ARSCData;
 import brut.androlib.res.decoder.ARSCDecoder.FlagsOffset;
@@ -48,6 +49,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
 import org.apache.commons.io.IOUtils;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.xmlpull.v1.XmlSerializer;
 
@@ -235,6 +237,67 @@ final public class AndrolibResources {
         }
     }
 
+    public void fix_provider_references(ResTable resTable, String filePath)
+            throws AndrolibException {
+
+//        Map<String, String> packageInfo = resTable.getPackageInfo();
+//        String currentPackage = packageInfo.get("cur_package");
+
+        // Load string resources with values into a cache for later reference
+        LOGGER.info("Loading string resources with values into cache!");
+        Map<String, ResStringValue> sRes = new HashMap<String, ResStringValue>();
+        for (ResPackage pkg : resTable.listMainPackages()) {
+            LOGGER.info("Package! Id: " + pkg.getId() + ", name: " + pkg.getName());
+            for (ResValuesFile valuesFile : pkg.listValuesFiles()) {
+                String type = valuesFile.getType().getName();
+                String qualifiers = valuesFile.getConfig().getFlags().getQualifiers(); // if empty, then it's "DEFAULT" resources file
+                if ("string".equalsIgnoreCase(type) && "".equalsIgnoreCase(qualifiers)) {
+                    LOGGER.info("*** Values file: " + valuesFile.getPath() + ", type: " + valuesFile.getType() + ", config: " + valuesFile.getConfig());
+//                    LOGGER.info("### DEFAULT file!");
+                    for (ResResource res : valuesFile.listResources()) {
+                        // ResStringValue
+                        if (res.getValue() instanceof ResStringValue) {
+                            ResStringValue strValue = (ResStringValue)res.getValue();
+//                            LOGGER.info("*** Resource: " + res.getFilePath() + ", value: " + strValue.encodeAsResXmlValue() + ", config: " + res.getConfig() + ", res speck: " + res.getResSpec());
+                            sRes.put("@" + res.getFilePath(), strValue);
+                        } else {
+//                            LOGGER.info("*** Resource: " + res.getFilePath() + ", value: " + res.getValue() + ", config: " + res.getConfig() + ", res speck: " + res.getResSpec());
+                        }
+                    }
+                }
+            }
+        }
+
+        File f = new File(filePath);
+        if (f.exists()) {
+            try {
+                Document doc = loadDocument(filePath);
+                NodeList providers = doc.getElementsByTagName("provider");
+                for (int i = 0; i < providers.getLength(); i++) {
+                    Node provider = providers.item(i);
+                    NamedNodeMap attrs = provider.getAttributes();
+                    Node vAuthorities = attrs.getNamedItem("android:authorities");
+                    if (vAuthorities != null && vAuthorities.getNodeValue() != null && vAuthorities.getNodeValue().toLowerCase().startsWith("@string/")) {
+                        // if "android:authorities" value references a value in resources, then we need to replace with a resource value,
+                        // otherwise an application that is repackaged with aapt cannot be installed on device
+                        LOGGER.info("*** Provider. Found authorities attr: " + vAuthorities.getNodeValue() + " in " + filePath);
+                        ResStringValue resStringValue = sRes.get(vAuthorities.getNodeValue());
+                        if (resStringValue != null) {
+                            LOGGER.info("*** Rewriting <provider> attribute: 'android:authorities' value with: " + resStringValue.encodeAsResXmlValue() + ". Was: " + vAuthorities.getNodeValue());
+                            vAuthorities.setNodeValue(resStringValue.encodeAsResXmlValue());
+                        } else {
+                            LOGGER.warning("*** <provider> attribute: 'android:authorities' referenced '" + vAuthorities.getNodeValue() + "' but it's value was not found in resources!");
+                        }
+                    }
+                }
+
+                // done with fix, save it
+                saveDocument(filePath, doc);
+            } catch (SAXException | ParserConfigurationException | IOException | TransformerException ignored) {
+            }
+        }
+    }
+
     private Document loadDocument(String filename)
             throws IOException, SAXException, ParserConfigurationException {
 
@@ -289,6 +352,9 @@ final public class AndrolibResources {
                 in = inApk.getDir("res");
             }
             out = out.createDir("res");
+
+            // Fix <provider> references
+            fix_provider_references(resTable, outDir.getAbsolutePath() + File.separator + "AndroidManifest.xml");
         } catch (DirectoryException ex) {
             throw new AndrolibException(ex);
         }
