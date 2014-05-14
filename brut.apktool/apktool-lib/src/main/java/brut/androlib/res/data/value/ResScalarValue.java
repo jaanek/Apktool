@@ -42,10 +42,12 @@ public abstract class ResScalarValue extends ResValue implements
 		if (mRawValue != null) {
 			return mRawValue;
 		}
+        // return encodeAsResXml().replace("@android:", "@*android:");
 		return encodeAsResXml();
 	}
 
 	public String encodeAsResXmlItemValue() throws AndrolibException {
+        // return encodeAsResXml().replace("@android:", "@*android:");
 		return encodeAsResXmlValue();
 	}
 
@@ -54,10 +56,12 @@ public abstract class ResScalarValue extends ResValue implements
 		if (mRawValue != null) {
 			return mRawValue;
 		}
+        // return encodeAsResXml().replace("@android:", "@*android:");
 		return encodeAsResXml();
 	}
 
     public String encodeAsResXmlNonEscapedItemValue() throws AndrolibException {
+        //return encodeAsResXmlValue().replace("@android:", "@*android:").replace("&amp;", "&").replace("&lt;","<");
         return encodeAsResXmlValue().replace("&amp;", "&").replace("&lt;","<");
     }
 

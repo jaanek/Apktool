@@ -725,4 +725,6 @@ public class Androlib {
             "AndroidManifest.xml" };
     private final static String[] APK_STANDARD_ALL_FILENAMES = new String[] {
             "classes.dex", "AndroidManifest.xml", "resources.arsc","res","lib", "libs","assets","META-INF" };
+
+    public static List packagesAllowPrivateAccess = new ArrayList<>();
 }

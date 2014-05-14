@@ -16,6 +16,7 @@
 
 package brut.androlib.res.data.value;
 
+import brut.androlib.Androlib;
 import brut.androlib.AndrolibException;
 import brut.androlib.res.data.ResPackage;
 import brut.androlib.res.data.ResResSpec;
@@ -51,10 +52,14 @@ public class ResReferenceValue extends ResIntValue {
 		// generate the beginning to fix @android
 		String mStart = (mTheme ? '?' : '@') + (newId ? "+" : "");
 
-		return mStart
-				+ spec.getFullName(mPackage, mTheme
-						&& spec.getType().getName().equals("attr"));
-	}
+        String result = mStart + spec.getFullName(mPackage, mTheme && spec.getType().getName().equals("attr"));
+
+        // hack, ref: https://github.com/iBotPeaches/Apktool/commit/9f03d7d35c296a
+        if (Androlib.packagesAllowPrivateAccess.contains(mPackage.getName())) {
+            result = result.replace("@android", "@*android");
+        }
+        return result;
+    }
 
 	public ResResSpec getReferent() throws AndrolibException {
 		return mPackage.getResTable().getResSpec(getValue());

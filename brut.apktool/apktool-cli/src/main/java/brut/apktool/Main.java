@@ -147,6 +147,19 @@ public class Main {
         if (cli.hasOption("api")) {
             decoder.setApi(Integer.parseInt(cli.getOptionValue("api")));
         }
+        if (cli.hasOption("res-priv-access")) {
+            String optionValue = cli.getOptionValue("res-priv-access");
+            System.err.println("*** Allowed packages for private access: " + optionValue);
+            if (optionValue != null) {
+                String[] values = optionValue.split(",");
+                for (String value : values) {
+                    value = value.trim();
+                    if (value.length() > 0) {
+                        Androlib.packagesAllowPrivateAccess.add(value);
+                    }
+                }
+            }
+        }
         if (cli.hasOption("o") || cli.hasOption("output")) {
             outDir = new File(cli.getOptionValue("o"));
             decoder.setOutDir(outDir);
@@ -379,6 +392,12 @@ public class Main {
         Option verboseOption = OptionBuilder.withLongOpt("verbose")
                 .create("v");
 
+        Option resPrivAccessOption = OptionBuilder.withLongOpt("res-priv-access")
+                .withDescription("Force to allow resources private access <value>.")
+                .hasArg(true)
+                .withArgName("value")
+                .create("rpa");
+
         // check for advance mode
         if (isAdvanceMode()) {
             DecodeOptions.addOption(debugLinePrefix);
@@ -404,6 +423,7 @@ public class Main {
         DecodeOptions.addOption(forceDecOption);
         DecodeOptions.addOption(noSrcOption);
         DecodeOptions.addOption(noResOption);
+        DecodeOptions.addOption(resPrivAccessOption);
 
         // add basic build options
         BuildOptions.addOption(outputBuiOption);

@@ -284,7 +284,7 @@ public class StringBlock {
 		}
 	}
 
-	private static final int getShort(byte[] array, int offset) {
+	public static final int getShort(byte[] array, int offset) {
 		return (array[offset + 1] & 0xff) << 8 | array[offset] & 0xff;
 	}
 
@@ -309,8 +309,8 @@ public class StringBlock {
 		}
 	}
 
-	private int[] m_stringOffsets;
-	private byte[] m_strings;
+	public int[] m_stringOffsets;
+	public byte[] m_strings;
 	private int[] m_styleOffsets;
 	private int[] m_styles;
 	private boolean m_isUTF8;

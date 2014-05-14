@@ -26,6 +26,8 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.apache.commons.lang3.ArrayUtils;
 import org.xmlpull.v1.XmlPullParserException;
 
 /**
@@ -873,6 +875,12 @@ public class AXmlResourceParser implements XmlResourceParser {
 			m_strings = StringBlock.read(m_reader);
 			m_namespaces.increaseDepth();
 			m_operational = true;
+            // Log out every offset + string value
+//            for (int i=0; i < m_strings.m_stringOffsets.length; i++) {
+//                int offset = m_strings.m_stringOffsets[i];
+//                int length = m_strings.getShort(m_strings.m_strings, offset);
+//                LOGGER.info("String index: " + i + ", offset: " + offset + "(" + length + "), value: " + m_strings.getString(i));
+//            }
 		}
 
 		if (m_event == END_DOCUMENT) {
@@ -892,7 +900,8 @@ public class AXmlResourceParser implements XmlResourceParser {
 			if (event == END_TAG && m_namespaces.getDepth() == 1
 					&& m_namespaces.getCurrentCount() == 0) {
 				m_event = END_DOCUMENT;
-				break;
+//                LOGGER.info("End document: " + m_event);
+                break;
 			}
 
 			int chunkType;
@@ -910,6 +919,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 							+ chunkSize + ").");
 				}
 				m_resourceIDs = m_reader.readIntArray(chunkSize / 4 - 2);
+//                LOGGER.info("Resource ids: " + StringUtils.join(m_strings, ",", m_resourceIDs, null));
 				continue;
 			}
 
@@ -920,13 +930,17 @@ public class AXmlResourceParser implements XmlResourceParser {
 			// Fake START_DOCUMENT event.
 			if (chunkType == CHUNK_XML_START_TAG && event == -1) {
 				m_event = START_DOCUMENT;
+//                LOGGER.info("Start doc: " + m_event);
 				break;
 			}
 
 			// Common header.
-			/* chunkSize */m_reader.skipInt();
+			/* chunkSize */ //m_reader.skipInt();
+            int tmp0 = m_reader.readInt();
 			int lineNumber = m_reader.readInt();
-			/* 0xFFFFFFFF */m_reader.skipInt();
+			/* 0xFFFFFFFF */ //m_reader.skipInt();
+            int tmp1 = m_reader.readInt();
+//            LOGGER.info("*** Common header: tmp0: " + tmp0 + ", line nr: " + lineNumber + ", tmp1: " + tmp1);
 
 			if (chunkType == CHUNK_XML_START_NAMESPACE
 					|| chunkType == CHUNK_XML_END_NAMESPACE) {
@@ -934,10 +948,12 @@ public class AXmlResourceParser implements XmlResourceParser {
 					int prefix = m_reader.readInt();
 					int uri = m_reader.readInt();
 					m_namespaces.push(prefix, uri);
-				} else {
+//                    LOGGER.info("Start namespace! Prefix: " + prefix + ", uri: " + uri + " [" + m_strings.getString(uri) + "]");
+                } else {
 					/* prefix */m_reader.skipInt();
 					/* uri */m_reader.skipInt();
 					m_namespaces.pop();
+//                    LOGGER.info("End namespace!");
 				}
 				continue;
 			}
@@ -947,21 +963,23 @@ public class AXmlResourceParser implements XmlResourceParser {
 			if (chunkType == CHUNK_XML_START_TAG) {
 				m_namespaceUri = m_reader.readInt();
 				m_name = m_reader.readInt();
-				/* flags? */m_reader.skipInt();
+				/* flags? */ //m_reader.skipInt();
+                int flags = m_reader.readInt();
 				int attributeCount = m_reader.readInt();
 				m_idAttribute = (attributeCount >>> 16) - 1;
 				attributeCount &= 0xFFFF;
 				m_classAttribute = m_reader.readInt();
 				m_styleAttribute = (m_classAttribute >>> 16) - 1;
 				m_classAttribute = (m_classAttribute & 0xFFFF) - 1;
-				m_attributes = m_reader.readIntArray(attributeCount
-						* ATTRIBUTE_LENGTH);
+				m_attributes = m_reader.readIntArray(attributeCount * ATTRIBUTE_LENGTH);
+                int[] origAttrs = ArrayUtils.clone(m_attributes);
 				for (int i = ATTRIBUTE_IX_VALUE_TYPE; i < m_attributes.length;) {
 					m_attributes[i] = (m_attributes[i] >>> 24);
 					i += ATTRIBUTE_LENGTH;
 				}
 				m_namespaces.increaseDepth();
 				m_event = START_TAG;
+//                LOGGER.info("Start tag! " + m_event + " [" + getNamespace() +":"+  getName() + "]" + ". Namespace uri: " + m_namespaceUri + ", tag name: " + m_name + ", id attr: " + m_idAttribute + ", style attr: " + m_styleAttribute + ", class attr: " + m_classAttribute + ", attrs (" + attributeCount + ")(flags:" + flags + "): " + StringUtils.join(m_strings, ",", m_attributes, origAttrs));
 				break;
 			}
 
@@ -970,6 +988,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 				m_name = m_reader.readInt();
 				m_event = END_TAG;
 				m_decreaseDepth = true;
+//                LOGGER.info("End tag! " + m_event + " [" + getNamespace() +":"+  getName() + "]" + ". Namespace uri: " + m_namespaceUri + ", tag name: " + m_name);
 				break;
 			}
 
@@ -978,6 +997,7 @@ public class AXmlResourceParser implements XmlResourceParser {
 				/* ? */m_reader.skipInt();
 				/* ? */m_reader.skipInt();
 				m_event = TEXT;
+//                LOGGER.info("Text! " + m_event + ", name: " + m_name + " [" + getName() + "]");
 				break;
 			}
 		}
@@ -988,6 +1008,27 @@ public class AXmlResourceParser implements XmlResourceParser {
 			mFirstError = error;
 		}
 	}
+
+    public static class StringUtils {
+        public static String join(StringBlock m_strings, String sep, int[] attrs, int[] origAttrs) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < attrs.length; i++) {
+                if (i > 0) {
+                    sb.append(sep);
+                }
+                sb.append(attrs[i]);
+                sb.append("[" + m_strings.getString(attrs[i]) + "]");
+                //
+                if (origAttrs != null) {
+                    sb.append("#[" + (Integer.toBinaryString(origAttrs[i])) + "]");
+//                    sb.append("[" + (origAttrs[i] >>> 24) + ":" + m_strings.getString(origAttrs[i] >>> 24) + "]");
+//                    sb.append("[" + (origAttrs[i] >>> 16) + ":" + m_strings.getString(origAttrs[i] >>> 16) + "]");
+//                    sb.append("[" + (origAttrs[i] >>> 8) + ":" + m_strings.getString(origAttrs[i] >>> 8) + "]");
+                }
+            }
+            return sb.toString();
+        }
+    }
 
 	// ///////////////////////////////// data
 	/*
